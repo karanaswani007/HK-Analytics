@@ -61,6 +61,8 @@ export async function runPipeline(
     previewCleaned: cleaned.rows.slice(0, 25),
     cleanedRows: cleaned.rows,
     cleanedNames: cleaned.names,
+    calculatedColumns: [],
+    customMeasures: [],
     warnings: [
       ...data.warnings,
       ...data.parseErrors.slice(0, 5),

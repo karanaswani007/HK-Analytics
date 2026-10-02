@@ -330,6 +330,16 @@ export function compactContext(result: AnalysisResult): string {
     .slice(0, 12)
     .map((l) => `${l.operation} ${l.column ?? ""} → ${l.rowsAffected} (${l.method})`)
     .join("\n");
+  const calculatedColumns = result.calculatedColumns
+    .map((column) => `${column.name} = ${column.leftColumn} ${column.operator} ${column.rightColumn}`)
+    .join("; ");
+  const customMeasures = result.customMeasures
+    .map((measure) => `${measure.name}: ${measure.aggregation}(${measure.column}) = ${fmtNumber(measure.value)}`)
+    .join("; ");
+  const customVisuals = result.dashboard.charts
+    .filter((chart) => chart.id.startsWith("custom-"))
+    .map((chart) => `${chart.title} (${chart.type})`)
+    .join("; ");
   return [
     `Dataset: ${result.fileName}`,
     `Analyzed: ${result.analyzedAt}`,
@@ -339,6 +349,9 @@ export function compactContext(result: AnalysisResult): string {
     `KPIs: ${kpis}`,
     `Likely target: ${result.profile.likelyTarget ?? "none"}`,
     `Columns:\n${cols.join("\n")}`,
+    `Calculated columns: ${calculatedColumns || "none"}`,
+    `Saved measures: ${customMeasures || "none"}`,
+    `Custom visuals: ${customVisuals || "none"}`,
     `Cleaning:\n${cleaning}`,
     `Associations:\n${tests}`,
     `Correlations:\n${corrs}`,

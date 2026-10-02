@@ -23,10 +23,32 @@ export type Strength = "high" | "medium" | "low";
 export type ChartType =
   | "bar"
   | "line"
+  | "area"
   | "scatter"
   | "histogram"
   | "heatmap"
-  | "stacked-bar";
+  | "stacked-bar"
+  | "pie"
+  | "donut"
+  | "treemap";
+
+export type CalculatedColumnOperator = "add" | "subtract" | "multiply" | "divide";
+export type MeasureAggregation = "sum" | "average" | "count" | "distinct" | "min" | "max" | "median";
+
+export interface CalculatedColumnDefinition {
+  name: string;
+  leftColumn: string;
+  operator: CalculatedColumnOperator;
+  rightColumn: string;
+}
+
+export interface CustomMeasure {
+  id: string;
+  name: string;
+  column: string;
+  aggregation: MeasureAggregation;
+  value: number;
+}
 
 export interface CellValue {
   raw: unknown;
@@ -197,6 +219,7 @@ export interface ChartSpec {
   xKey: string;
   yKey?: string;
   seriesKey?: string;
+  seriesKeys?: { key: string; label: string }[];
   xLabel?: string;
   yLabel?: string;
   data: Record<string, string | number | null>[];
@@ -266,6 +289,8 @@ export interface AnalysisResult {
   cleanedRows: Record<string, unknown>[];
   cleanedNames: string[];
   warnings: string[];
+  calculatedColumns: CalculatedColumnDefinition[];
+  customMeasures: CustomMeasure[];
 }
 
 export interface ProgressEvent {

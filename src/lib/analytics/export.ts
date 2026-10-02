@@ -37,6 +37,8 @@ export function buildAnalysisJson(result: AnalysisResult): string {
       originalColCount: result.originalColCount,
       cleanedRowCount: result.cleanedRowCount,
       cleanedColCount: result.cleanedColCount,
+      calculatedColumns: result.calculatedColumns,
+      customMeasures: result.customMeasures,
       profile: result.profile,
       quality: result.quality,
       cleaning: result.cleaning,
@@ -108,6 +110,21 @@ export async function buildExcelBlob(result: AnalysisResult): Promise<Blob> {
     reason: l.reason,
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logs), "Cleaning");
+
+  if (result.customMeasures.length) {
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(
+        result.customMeasures.map((measure) => ({
+          name: measure.name,
+          aggregation: measure.aggregation,
+          column: measure.column,
+          value: measure.value,
+        })),
+      ),
+      "Measures",
+    );
+  }
 
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as number[];
   return new Blob([Uint8Array.from(out)], {

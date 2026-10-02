@@ -13,16 +13,34 @@ function tmdlType(kind: string): string {
   return "string";
 }
 
+function tmdlIdentifier(name: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : `'${name.replace(/'/g, "''")}'`;
+}
+
+function daxColumn(name: string): string {
+  return `'Dataset'[${name.replace(/]/g, "]]" )}]`;
+}
+
 function visualFromChart(chart: ChartSpec, i: number): object {
   const x = 16 + (i % 2) * 640;
   const y = 120 + Math.floor(i / 2) * 280;
   const visualType =
     chart.type === "line"
       ? "lineChart"
+      : chart.type === "area"
+        ? "areaChart"
       : chart.type === "scatter"
         ? "scatterChart"
         : chart.type === "heatmap"
           ? "matrix"
+          : chart.type === "pie"
+            ? "pieChart"
+            : chart.type === "donut"
+              ? "donutChart"
+              : chart.type === "treemap"
+                ? "treemap"
+                : chart.type === "stacked-bar"
+                  ? "stackedBarChart"
           : "clusteredBarChart";
   return {
     $schema: "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.3.0/schema.json",
@@ -99,21 +117,39 @@ export async function buildPowerBiZip(result: AnalysisResult): Promise<Blob> {
     ),
   );
 
-  const colsTmdl = result.profile.columns
-    .filter((c) => result.cleanedNames.includes(c.name))
-    .map((c) => {
+  const profileByName = new Map(result.profile.columns.map((column) => [column.name, column]));
+  const colsTmdl = result.cleanedNames
+    .map((name) => {
+      const profile = profileByName.get(name);
+      const kind = profile?.kind ?? (result.cleanedRows.some((row) => typeof row[name] === "number") ? "numeric" : "categorical");
       const tag = guid();
       return [
-        `\tcolumn ${c.name}`,
-        `\t\tdataType: ${tmdlType(c.kind)}`,
+        `\tcolumn ${tmdlIdentifier(name)}`,
+        `\t\tdataType: ${tmdlType(kind)}`,
         `\t\tlineageTag: ${tag}`,
-        `\t\tsummarizeBy: ${c.kind === "numeric" ? "sum" : "none"}`,
-        `\t\tsourceColumn: ${c.name}`,
+        `\t\tsummarizeBy: ${kind === "numeric" ? "sum" : "none"}`,
+        `\t\tsourceColumn: ${name}`,
         "",
         `\t\tannotation SummarizationSetBy = Automatic`,
         "",
       ].join("\n");
     })
+    .join("\n");
+  const aggregationFunctions = {
+    sum: "SUM",
+    average: "AVERAGE",
+    count: "COUNTA",
+    distinct: "DISTINCTCOUNT",
+    median: "MEDIAN",
+    min: "MIN",
+    max: "MAX",
+  } as const;
+  const measuresTmdl = result.customMeasures
+    .map((measure) => [
+      `\tmeasure ${tmdlIdentifier(measure.name)} = ${aggregationFunctions[measure.aggregation]}(${daxColumn(measure.column)})`,
+      `\t\tlineageTag: ${guid()}`,
+      "",
+    ].join("\n"))
     .join("\n");
 
   const tableTmdl = [
@@ -121,6 +157,7 @@ export async function buildPowerBiZip(result: AnalysisResult): Promise<Blob> {
     `\tlineageTag: ${guid()}`,
     "",
     colsTmdl,
+    measuresTmdl,
     `\tpartition ${tableName} = m`,
     `\t\tmode: import`,
     `\t\tsource =`,
@@ -163,6 +200,9 @@ export async function buildPowerBiZip(result: AnalysisResult): Promise<Blob> {
     "cultureInfo en-US\n\tlinguisticMetadata =\n\t\tjson\n\t\t\t```\n\t\t\t{ \"Version\": \"1.0.0\", \"Language\": \"en-US\" }\n\t\t\t```\n",
   );
 
+  const customCharts = result.dashboard.charts
+    .filter((chart) => chart.id.startsWith("custom-"))
+    .slice(0, 8);
   const pages = [
     {
       id: "overview",
@@ -179,6 +219,9 @@ export async function buildPowerBiZip(result: AnalysisResult): Promise<Blob> {
       displayName: "Insights",
       charts: result.dashboard.charts.filter((c) => c.id.startsWith("rate-") || c.type === "heatmap" || c.type === "scatter").slice(0, 4),
     },
+    ...(customCharts.length
+      ? [{ id: "custom", displayName: "Custom Visuals", charts: customCharts }]
+      : []),
   ];
 
   zip.file(

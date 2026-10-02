@@ -1,6 +1,15 @@
 import { create } from "zustand";
-import type { AnalysisResult, AnalystMessage, ParsedDataset, ProgressEvent } from "./analytics/types";
+import type {
+  AnalysisResult,
+  AnalystMessage,
+  CalculatedColumnDefinition,
+  ChartSpec,
+  CustomMeasure,
+  ParsedDataset,
+  ProgressEvent,
+} from "./analytics/types";
 import { runPipeline } from "./analytics/pipeline";
+import { aggregateValues, calculateColumnValues } from "./analytics/custom-model";
 import { uid } from "./analytics/format";
 
 export type View = "landing" | "preview" | "processing" | "workspace";
@@ -11,6 +20,7 @@ export type TabId =
   | "eda"
   | "insights"
   | "dashboard"
+  | "model"
   | "analyst"
   | "downloads";
 
@@ -28,6 +38,9 @@ interface AppState {
   loadParsed: (parsed: ParsedDataset) => void;
   setError: (error: string | null) => void;
   analyze: () => Promise<void>;
+  addCalculatedColumn: (definition: CalculatedColumnDefinition) => boolean;
+  addCustomMeasure: (measure: CustomMeasure) => boolean;
+  addCustomChart: (chart: ChartSpec) => boolean;
   addMessage: (msg: Omit<AnalystMessage, "id" | "at"> & { id?: string }) => void;
   reset: () => void;
 }
@@ -88,6 +101,66 @@ export const useAppStore = create<AppState>((set, get) => ({
         error: message,
       });
     }
+  },
+  addCalculatedColumn: (definition) => {
+    const result = get().result;
+    const name = definition.name.trim();
+    if (!result || !name || result.cleanedNames.some((column) => column.toLowerCase() === name.toLowerCase())) {
+      return false;
+    }
+    if (!result.cleanedNames.includes(definition.leftColumn) || !result.cleanedNames.includes(definition.rightColumn)) {
+      return false;
+    }
+    const values = calculateColumnValues(result.cleanedRows, definition);
+    const cleanedRows = result.cleanedRows.map((row, index) => ({ ...row, [name]: values[index] }));
+    const cleanedNames = [...result.cleanedNames, name];
+    set({
+      result: {
+        ...result,
+        cleanedRows,
+        cleanedNames,
+        cleanedColCount: cleanedNames.length,
+        previewCleaned: cleanedRows.slice(0, 25),
+        calculatedColumns: [...result.calculatedColumns, { ...definition, name }],
+        dashboard: {
+          ...result.dashboard,
+          kpis: result.dashboard.kpis.map((kpi) =>
+            kpi.id === "cols" ? { ...kpi, value: String(cleanedNames.length) } : kpi,
+          ),
+        },
+      },
+    });
+    return true;
+  },
+  addCustomMeasure: (measure) => {
+    const result = get().result;
+    if (!result || !result.cleanedNames.includes(measure.column)) return false;
+    if (result.customMeasures.some((existing) => existing.name.toLowerCase() === measure.name.trim().toLowerCase())) {
+      return false;
+    }
+    const value = aggregateValues(
+      result.cleanedRows.map((row) => row[measure.column]),
+      measure.aggregation,
+    );
+    set({
+      result: {
+        ...result,
+        customMeasures: [...result.customMeasures, { ...measure, name: measure.name.trim(), value }],
+      },
+    });
+    return true;
+  },
+  addCustomChart: (chart) => {
+    const result = get().result;
+    if (!result || result.dashboard.charts.some((existing) => existing.id === chart.id)) return false;
+    const charts = [...result.dashboard.charts, chart];
+    const customChartIds = charts.filter((item) => item.id.startsWith("custom-")).map((item) => item.id);
+    const sections = result.dashboard.sections.filter((section) => section.id !== "custom");
+    if (customChartIds.length) {
+      sections.push({ id: "custom", title: "Custom visuals", chartIds: customChartIds });
+    }
+    set({ result: { ...result, dashboard: { ...result.dashboard, charts, sections } } });
+    return true;
   },
   addMessage: (msg) =>
     set({

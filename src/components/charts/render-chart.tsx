@@ -1,14 +1,19 @@
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
+  Treemap,
   XAxis,
   YAxis,
 } from "recharts";
@@ -92,6 +97,19 @@ function ChartBody({ chart }: { chart: ChartSpec }) {
       </ResponsiveContainer>
     );
   }
+  if (chart.type === "area") {
+    return (
+      <ResponsiveContainer width="100%" height={240}>
+        <AreaChart data={chart.data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+          <CartesianGrid stroke={chartColors.line} strokeDasharray="3 3" />
+          <XAxis dataKey={chart.xKey} tick={{ fill: chartColors.muted, fontSize: 11 }} tickFormatter={shorten} />
+          <YAxis tick={{ fill: chartColors.muted, fontSize: 11 }} width={48} />
+          <Tooltip contentStyle={tooltipStyle} />
+          <Area dataKey={chart.yKey ?? "value"} type="monotone" stroke={chartColors.navy} fill={chartColors.navy} fillOpacity={0.2} />
+        </AreaChart>
+      </ResponsiveContainer>
+    );
+  }
   if (chart.type === "scatter") {
     return (
       <ResponsiveContainer width="100%" height={240}>
@@ -115,6 +133,57 @@ function ChartBody({ chart }: { chart: ChartSpec }) {
           <Tooltip contentStyle={tooltipStyle} cursor={{ strokeDasharray: "3 3" }} />
           <Scatter data={chart.data} fill={chartColors.navy} fillOpacity={0.65} />
         </ScatterChart>
+      </ResponsiveContainer>
+    );
+  }
+  if (chart.type === "pie" || chart.type === "donut") {
+    return (
+      <ResponsiveContainer width="100%" height={240}>
+        <PieChart>
+          <Tooltip contentStyle={tooltipStyle} />
+          <Pie
+            data={chart.data}
+            dataKey={chart.yKey ?? "value"}
+            nameKey={chart.xKey}
+            innerRadius={chart.type === "donut" ? 48 : 0}
+            outerRadius={88}
+            paddingAngle={chart.type === "donut" ? 2 : 0}
+          >
+            {chart.data.map((_, index) => (
+              <Cell key={index} fill={chartColors.series[index % chartColors.series.length]} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  }
+  if (chart.type === "treemap") {
+    return (
+      <ResponsiveContainer width="100%" height={240}>
+        <Treemap
+          data={chart.data}
+          dataKey={chart.yKey ?? "value"}
+          nameKey={chart.xKey}
+          stroke={chartColors.cream}
+          fill={chartColors.navy}
+        >
+          <Tooltip contentStyle={tooltipStyle} />
+        </Treemap>
+      </ResponsiveContainer>
+    );
+  }
+  if (chart.type === "stacked-bar" && chart.seriesKeys?.length) {
+    return (
+      <ResponsiveContainer width="100%" height={240}>
+        <BarChart data={chart.data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+          <CartesianGrid stroke={chartColors.line} strokeDasharray="3 3" vertical={false} />
+          <XAxis dataKey={chart.xKey} tick={{ fill: chartColors.muted, fontSize: 11 }} tickFormatter={shorten} />
+          <YAxis tick={{ fill: chartColors.muted, fontSize: 11 }} width={48} />
+          <Tooltip contentStyle={tooltipStyle} />
+          {chart.seriesKeys.map((series, index) => (
+            <Bar key={series.key} dataKey={series.key} name={series.label} stackId="series" fill={chartColors.series[index % chartColors.series.length]} />
+          ))}
+        </BarChart>
       </ResponsiveContainer>
     );
   }

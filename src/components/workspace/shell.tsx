@@ -7,6 +7,7 @@ import {
   ListChecks,
   Activity,
   ShieldAlert,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { InsightsPanel } from "./insights";
 import { DashboardPanel } from "./dashboard";
 import { AnalystPanel } from "./analyst";
 import { DownloadsPanel } from "./downloads";
+import { ModelPanel } from "./model";
 
 const NAV: { id: TabId; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -28,6 +30,7 @@ const NAV: { id: TabId; label: string; icon: typeof BarChart3 }[] = [
   { id: "eda", label: "EDA", icon: Activity },
   { id: "insights", label: "Insights", icon: Lightbulb },
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { id: "model", label: "Model & charts", icon: ChartNoAxesCombined },
   { id: "analyst", label: "AI Analyst", icon: Bot },
   { id: "downloads", label: "Downloads", icon: Download },
 ];
@@ -115,6 +118,7 @@ export function WorkspaceShell() {
           {tab === "eda" && <EdaPanel />}
           {tab === "insights" && <InsightsPanel />}
           {tab === "dashboard" && <DashboardPanel />}
+          {tab === "model" && <ModelPanel />}
           {tab === "analyst" && <AnalystPanel />}
           {tab === "downloads" && <DownloadsPanel />}
         </main>
